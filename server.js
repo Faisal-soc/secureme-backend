@@ -1,4 +1,3 @@
-```javascript
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -121,4 +120,3 @@ app.post("/api/ai", async (req, res) => {
 app.listen(PORT, "0.0.0.0", () => {
   console.log("SecureMe backend running on port " + PORT);
 });
-```
