@@ -4,141 +4,96 @@ const helmet = require("helmet");
 
 const app = express();
 
-/*
- * Security headers
- */
 app.use(helmet());
-
-/*
- * CORS
- * Flutter Android + iOS native apps do not depend on browser CORS.
- * We keep CORS enabled for possible web clients.
- */
 app.use(cors());
-
-/*
- * Limit JSON request body size
- */
 app.use(express.json({ limit: "10kb" }));
 
-/*
- * Health check
- */
 app.get("/", (req, res) => {
   res.json({
     status: "SecureMe backend is running",
   });
 });
 
-/*
- * AI endpoint
- */
 app.post("/api/ai", (req, res) => {
   const { message } = req.body;
 
-  /*
-   * Input validation
-   */
-  if (typeof message !== "string") {
-    return res.status(400).json({
-      error: "Message must be a string",
-    });
-  }
-
-  const cleanMessage = message.trim();
-
-  if (!cleanMessage) {
+  // Validate input
+  if (typeof message !== "string" || !message.trim()) {
     return res.status(400).json({
       error: "Message is required",
     });
   }
 
-  /*
-   * Maximum message length
-   */
-  if (cleanMessage.length > 2000) {
-    return res.status(400).json({
-      error: "Message is too long",
-    });
-  }
+  const text = message.trim().toLowerCase();
 
-  const text = cleanMessage.toLowerCase();
-
-  let reply;
-
-  /*
-   * Phishing
-   */
+  // Phishing
   if (
     text.includes("phishing") ||
     text.includes("التصيد") ||
+    text.includes("التصيّد") ||
     text.includes("تصيد")
   ) {
-    reply =
-      "التصيد الإلكتروني هو محاولة خداع المستخدم للحصول على معلومات حساسة مثل كلمات المرور أو بيانات الحسابات. لا تضغط على الروابط المشبوهة، وتحقق دائمًا من عنوان الموقع والمرسل، وفعّل المصادقة متعددة العوامل MFA.";
+    return res.json({
+      reply:
+        "التصيد الإلكتروني هو محاولة خداع المستخدم للحصول على معلومات حساسة مثل كلمات المرور أو بيانات الحسابات. لحماية نفسك: لا تضغط على الروابط المشبوهة، تحقق من عنوان الموقع والمرسل، فعّل MFA، ولا تدخل بياناتك في صفحات غير موثوقة.",
+    });
   }
 
-  /*
-   * Passwords
-   */
-  else if (
+  // Passwords
+  if (
     text.includes("password") ||
     text.includes("كلمة المرور") ||
-    text.includes("كلمه المرور")
+    text.includes("كلمه المرور") ||
+    text.includes("كلمة سر") ||
+    text.includes("كلمه سر")
   ) {
-    reply =
-      "استخدم كلمة مرور طويلة وفريدة لكل حساب، ويفضل استخدام مدير كلمات مرور. فعّل MFA عندما يكون متاحًا، ولا تشارك كلمة المرور مع أي شخص.";
+    return res.json({
+      reply:
+        "لإنشاء كلمة مرور قوية، استخدم كلمة مرور طويلة وفريدة لكل حساب، ويفضل أن تكون 12 حرفًا أو أكثر مع مزيج من الأحرف والأرقام والرموز. لا تستخدم معلومات شخصية، ولا تعيد استخدام كلمة المرور نفسها في أكثر من حساب. ويمكنك استخدام مدير كلمات مرور موثوق.",
+    });
   }
 
-  /*
-   * MFA
-   */
-  else if (
+  // MFA
+  if (
     text.includes("mfa") ||
-    text.includes("multi-factor") ||
-    text.includes("authentication") ||
+    text.includes("2fa") ||
+    text.includes("two factor") ||
     text.includes("المصادقة") ||
-    text.includes("المصادقه")
+    text.includes("المصادقه") ||
+    text.includes("التحقق بخطوتين") ||
+    text.includes("التحقق الثنائي")
   ) {
-    reply =
-      "MFA تضيف طبقة حماية إضافية للحساب. حتى لو حصل المهاجم على كلمة المرور، سيحتاج إلى عامل مصادقة إضافي. يفضل استخدام تطبيق Authenticator أو Security Key عند توفره.";
+    return res.json({
+      reply:
+        "MFA أو المصادقة متعددة العوامل تضيف طبقة حماية إضافية للحساب. حتى لو حصل المهاجم على كلمة المرور، سيحتاج إلى عامل تحقق إضافي. يفضل استخدام تطبيق Authenticator أو Security Key عندما يكون ذلك متاحًا.",
+    });
   }
 
-  /*
-   * Malware
-   */
-  else if (
+  // Malware
+  if (
     text.includes("malware") ||
     text.includes("virus") ||
+    text.includes("فيروس") ||
+    text.includes("فايروس") ||
     text.includes("برمجية خبيثة") ||
     text.includes("برمجيات خبيثة") ||
-    text.includes("فيروس") ||
-    text.includes("فايروس")
+    text.includes("البرمجيات الخبيثة")
   ) {
-    reply =
-      "البرمجيات الخبيثة هي برامج مصممة لتنفيذ أنشطة ضارة مثل سرقة البيانات أو تعطيل الأنظمة. حافظ على تحديث النظام، استخدم حلول الحماية، وتجنب الملفات والروابط غير الموثوقة.";
+    return res.json({
+      reply:
+        "البرمجيات الخبيثة Malware هي برامج مصممة لتنفيذ أنشطة ضارة مثل سرقة البيانات أو التجسس أو تعطيل الأنظمة. للحماية، حدّث نظام التشغيل والبرامج، استخدم حلول الحماية، وتجنب تحميل الملفات أو البرامج من مصادر غير موثوقة.",
+    });
   }
 
-  /*
-   * Default response
-   */
-  else {
-    reply =
-      "أنا SecureMe AI. أستطيع مساعدتك في أساسيات الأمن السيبراني مثل كلمات المرور، MFA، التصيد الإلكتروني، والبرمجيات الخبيثة.";
-  }
-
-  res.json({
-    reply,
+  // Default response
+  return res.json({
+    reply:
+      "أنا SecureMe AI. أستطيع مساعدتك في أساسيات الأمن السيبراني مثل كلمات المرور، MFA، التصيد الإلكتروني، والبرمجيات الخبيثة.",
   });
 });
 
-/*
- * Render provides the PORT environment variable.
- */
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(
-    `SecureMe backend running on port ${PORT}`
-  );
+  console.log(`SecureMe backend running on port ${PORT}`);
 });
