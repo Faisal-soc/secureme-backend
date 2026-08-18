@@ -14,7 +14,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 app.get("/", (req, res) => {
   res.json({
     status: "SecureMe backend is running",
-    version: "3.1"
+    version: "4.0"
   });
 });
 
@@ -35,6 +35,8 @@ app.post("/api/ai", async (req, res) => {
     }
 
     if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is missing");
+
       return res.status(500).json({
         error: "Gemini API key is not configured"
       });
@@ -43,33 +45,43 @@ app.post("/api/ai", async (req, res) => {
     const systemPrompt = `
 You are SecureMe AI, a helpful and intelligent cybersecurity assistant.
 
-Answer the user's actual question directly. Do not start every answer with generic phrases such as "I can help you with..." or "I can assist you with...".
+Your job is to answer the user's actual question directly.
 
-Answer naturally and conversationally.
+IMPORTANT:
+- Do not start every answer with "I can help you".
+- Do not give generic introductions.
+- Do not repeat the same response.
+- Understand the user's question before answering.
+- Answer naturally like a real AI assistant.
+- Answer in the same language as the user.
+- If the user writes Arabic, answer in natural Saudi-friendly Arabic when appropriate.
+- If the user writes English, answer in English.
+- You can answer general questions, not only cybersecurity questions.
+- For cybersecurity questions, provide useful defensive and educational information.
+- Explain technical concepts clearly and practically.
+- If the user asks a simple question, give a simple answer.
+- If the user asks for detailed information, provide detailed information.
+- Ask a clarification question only when it is genuinely necessary.
+- Do not claim that you performed actions that you did not perform.
 
-Always answer in the same language as the user.
-If the user writes Arabic, respond in natural Arabic.
-If the user writes English, respond in English.
+Safety:
+- Do not provide instructions for stealing credentials.
+- Do not provide malware deployment instructions.
+- Do not provide unauthorized account compromise instructions.
+- Do not provide instructions to bypass authentication or security controls on systems without authorization.
+- Defensive security, authorized testing, labs, CTFs, and educational examples are allowed.
 
-You can answer general questions, not only cybersecurity questions.
-
-For cybersecurity questions:
-- Explain concepts clearly.
-- Give practical defensive advice.
-- Help users understand security tools, logs, alerts, authentication, malware, phishing, MFA, passwords, networking, SIEM, SOC, and related topics.
-- For legitimate labs and authorized environments, provide educational technical guidance.
-
-Do not provide instructions intended to steal credentials, deploy malware, bypass authentication, compromise systems without authorization, or harm others.
-
-Keep answers useful and relevant to the user's question.
+The user's question is below.
 `;
 
-    const prompt = systemPrompt + "\nUser question:\n" + message;
+    const prompt = systemPrompt + "\n\nUser:\n" + message.trim();
 
     const url =
       "https://generativelanguage.googleapis.com/v1beta/models/" +
       "gemini-2.5-flash:generateContent?key=" +
       encodeURIComponent(GEMINI_API_KEY);
+
+    console.log("Sending request to Gemini...");
 
     const response = await fetch(url, {
       method: "POST",
@@ -88,19 +100,24 @@ Keep answers useful and relevant to the user's question.
         ],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 1000
+          maxOutputTokens: 1200
         }
       })
     });
 
     const data = await response.json();
 
+    console.log("Gemini HTTP status:", response.status);
+
     if (!response.ok) {
-      console.error("Gemini API error:", data);
+      console.error("Gemini API error:", JSON.stringify(data));
 
       return res.status(502).json({
-        error: "AI service error",
-        details: data?.error?.message || "Unknown Gemini error"
+        error: "Gemini API error",
+        status: response.status,
+        details:
+          data?.error?.message ||
+          "Unknown Gemini API error"
       });
     }
 
@@ -108,10 +125,14 @@ Keep answers useful and relevant to the user's question.
       data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!reply) {
-      console.error("Unexpected Gemini response:", data);
+      console.error(
+        "Unexpected Gemini response:",
+        JSON.stringify(data)
+      );
 
       return res.status(502).json({
-        error: "No AI response received"
+        error: "No AI response received",
+        details: "Gemini returned an unexpected response"
       });
     }
 
@@ -123,11 +144,14 @@ Keep answers useful and relevant to the user's question.
     console.error("Server error:", error);
 
     return res.status(500).json({
-      error: "Internal server error"
+      error: "Internal server error",
+      details: error.message
     });
   }
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("SecureMe backend running on port " + PORT);
+  console.log(
+    "SecureMe backend running on port " + PORT
+  );
 });
