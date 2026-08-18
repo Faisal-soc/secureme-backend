@@ -42,28 +42,26 @@ app.post("/api/ai", async (req, res) => {
     }
 
     const systemPrompt =
-      "You are SecureMe AI, a cybersecurity assistant. " +
-      "Answer the user's question directly and helpfully. " +
-      "Answer in the same language used by the user. " +
-      "If the user writes Arabic, answer in clear natural Arabic. " +
+      "You are SecureMe AI, a helpful cybersecurity assistant. " +
+      "Answer the user's question directly instead of giving generic introductions. " +
+      "Answer in the same language as the user. " +
+      "If the user writes Arabic, answer in natural clear Arabic. " +
       "If the user writes English, answer in English. " +
-      "You can answer general questions and cybersecurity questions. " +
-      "For cybersecurity topics, provide defensive and educational guidance. " +
-      "Do not provide instructions intended to steal credentials, deploy malware, " +
-      "bypass authentication, or compromise systems without authorization. " +
-      "Do not repeatedly say that you can help; actually answer the question.";
+      "You can answer general questions as well as cybersecurity questions. " +
+      "For cybersecurity topics, provide safe defensive and educational guidance. " +
+      "Do not provide instructions for stealing credentials, deploying malware, " +
+      "bypassing authentication, or compromising systems without authorization.";
 
-    const prompt =
-      systemPrompt +
+    const prompt = systemPrompt +
       "\n\nUser question:\n" +
       message;
 
-    const geminiUrl =
+    const url =
       "https://generativelanguage.googleapis.com/v1beta/models/" +
       "gemini-2.5-flash:generateContent?key=" +
       encodeURIComponent(GEMINI_API_KEY);
 
-    const response = await fetch(geminiUrl, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -91,18 +89,13 @@ app.post("/api/ai", async (req, res) => {
       console.error("Gemini API error:", data);
 
       return res.status(502).json({
-        error: "AI service error"
+        error: "AI service error",
+        details: data?.error?.message || "Unknown Gemini error"
       });
     }
 
     const reply =
-      data &&
-      data.candidates &&
-      data.candidates[0] &&
-      data.candidates[0].content &&
-      data.candidates[0].content.parts &&
-      data.candidates[0].content.parts[0] &&
-      data.candidates[0].content.parts[0].text;
+      data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!reply) {
       console.error("Unexpected Gemini response:", data);
@@ -112,7 +105,7 @@ app.post("/api/ai", async (req, res) => {
       });
     }
 
-    return res.status(200).json({
+    return res.json({
       reply: reply.trim()
     });
 
